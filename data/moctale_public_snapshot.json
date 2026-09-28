@@ -1,0 +1,35 @@
+{
+  "source": "https://www.moctale.in/content/avengers-endgame-2019",
+  "homepage_source": "https://www.moctale.in/",
+  "retrieved_utc_date": "2026-09-29",
+  "record_type": "public_page_snapshot",
+  "title": "Avengers: Endgame",
+  "content_type": "Movie",
+  "release_year": 2019,
+  "duration": "3h 1m",
+  "collections": [
+    "Talk Of The Town",
+    "Watch It With District"
+  ],
+  "overview": "After Thanos wipes out half of all life, the Avengers are left broken. Tony Stark, Steve Rogers, Natasha, and the others come together for one last mission. With help from Ant-Man and Captain Marvel, they plan a risky move to undo the damage and face Thanos again.",
+  "vibe_chart_percentages": {
+    "Action": 45,
+    "Drama": 30,
+    "Sci-Fi": 15,
+    "Comedy": 10
+  },
+  "moctale_meter_percentages": {
+    "Perfection": 96,
+    "Go for it": 4,
+    "Timepass": 0,
+    "Skip": 0
+  },
+  "meter_vote_count": null,
+  "page_review_status_text": "No Reviews Yet",
+  "poster_url": "https://media.moctale.in/images/f2c40eac-ed0f-4689-91af-2485edb33085.jpg",
+  "data_notes": [
+    "Meter percentages are transcribed as displayed; the page does not expose a vote count.",
+    "The page also says 'No Reviews Yet', so the percentages must not be treated as a verified sample size or as individual ratings.",
+    "The poster is referenced by URL only; its image bytes are not bundled in the repository."
+  ]
+}
