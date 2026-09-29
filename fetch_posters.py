@@ -1,116 +1,78 @@
+"""Download the openly licensed posters listed in data/open_posters.json.
+
+Run ``python open_posters.py`` first to discover posters on Wikidata/Commons."""
+
 from __future__ import annotations
 
 import argparse
-import csv
+import json
 import logging
-import os
-import sys
-import time
 from pathlib import Path
-from typing import Optional
+from urllib.parse import urlparse
 
 import requests
 
-# Set up logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+from open_posters import is_reuse_friendly
 
-TMDB_API_URL = "https://api.themoviedb.org/3/movie/{tmdb_id}?api_key={api_key}"
-TMDB_IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500{poster_path}"
 
-def get_poster_path(tmdb_id: str, api_key: str) -> Optional[str]:
-    """Fetch the poster_path for a given tmdb_id using TMDB API."""
-    url = TMDB_API_URL.format(tmdb_id=tmdb_id, api_key=api_key)
-    try:
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()
-        data = response.json()
-        return data.get("poster_path")
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Failed to fetch data for tmdb_id {tmdb_id}: {e}")
-        return None
+ROOT = Path(__file__).resolve().parent
+MANIFEST = ROOT / "data" / "open_posters.json"
+ALLOWED_HOSTS = {"upload.wikimedia.org", "commons.wikimedia.org"}
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+logger = logging.getLogger("open-posters")
 
-def download_image(url: str, save_path: Path) -> bool:
-    """Download image from url and save to save_path."""
-    try:
-        response = requests.get(url, stream=True, timeout=10)
-        response.raise_for_status()
-        with open(save_path, "wb") as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                f.write(chunk)
-        return True
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Failed to download image from {url}: {e}")
-        return False
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Fetch movie posters from TMDB.")
-    parser.add_argument("--api-key", type=str, help="TMDB API key. Can also be set via TMDB_API_KEY environment variable.")
-    parser.add_argument("--limit", type=int, help="Limit the number of posters to fetch.")
-    parser.add_argument("--data-dir", type=str, default="data", help="Directory containing links.csv")
-    parser.add_argument("--output-dir", type=str, default="posters", help="Directory to save downloaded posters")
-    
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--movie-ids", nargs="+", type=int, help="Only download the listed MovieLens IDs.")
+    parser.add_argument("--limit", type=int, help="Limit the number of manifest entries to download.")
+    parser.add_argument("--output-dir", type=Path, default=ROOT / "licensed_posters")
     args = parser.parse_args()
 
-    api_key = args.api_key or os.environ.get("TMDB_API_KEY")
-    if not api_key:
-        logger.error("TMDB API key is required. Provide it via --api-key or TMDB_API_KEY environment variable.")
-        sys.exit(1)
+    try:
+        entries = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        parser.error(f"Could not read {MANIFEST}: {exc}")
 
-    data_dir = Path(args.data_dir)
-    output_dir = Path(args.output_dir)
-    links_file = data_dir / "links.csv"
+    selected = list(entries.items())
+    if args.movie_ids:
+        requested = {str(movie_id) for movie_id in args.movie_ids}
+        selected = [(movie_id, entry) for movie_id, entry in selected if movie_id in requested]
+    if args.limit is not None:
+        selected = selected[: max(0, args.limit)]
+    if not selected:
+        parser.error("No matching, curated posters were found in data/open_posters.json.")
 
-    if not links_file.exists():
-        logger.error(f"Links file not found at {links_file}")
-        sys.exit(1)
-
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    movies = []
-    with open(links_file, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            if row.get("tmdbId"):
-                movies.append({"movieId": row["movieId"], "tmdbId": row["tmdbId"]})
-
-    if args.limit:
-        movies = movies[:args.limit]
-
-    total_movies = len(movies)
-    logger.info(f"Starting poster fetch for {total_movies} movies...")
-
-    success_count = 0
-    skip_count = 0
-    fail_count = 0
-
-    for i, movie in enumerate(movies, 1):
-        movie_id = movie["movieId"]
-        tmdb_id = movie["tmdbId"]
-        poster_path = output_dir / f"{movie_id}.jpg"
-
-        if poster_path.exists():
-            logger.info(f"[{i}/{total_movies}] Skipping movieId {movie_id}, poster already exists.")
-            skip_count += 1
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+    session = requests.Session()
+    session.headers.update({"User-Agent": "MoctaleMovieLens/1.0 (open poster attribution importer)"})
+    for movie_id, entry in selected:
+        license_name = str(entry.get("license", ""))
+        image_url = str(entry.get("image_url", ""))
+        host = urlparse(image_url).hostname
+        suffix = Path(urlparse(image_url).path).suffix.lower()
+        if host not in ALLOWED_HOSTS or suffix not in {".jpg", ".jpeg", ".png", ".webp"}:
+            logger.warning("Skipping movie %s: unsupported image URL", movie_id)
+            continue
+        if not is_reuse_friendly(license_name) or not entry.get("source_url") or not entry.get("artist"):
+            logger.warning("Skipping movie %s: source, creator, or a compatible license is missing", movie_id)
             continue
 
-        logger.info(f"[{i}/{total_movies}] Fetching poster for movieId {movie_id} (tmdbId {tmdb_id})...")
-        
-        poster_url_path = get_poster_path(tmdb_id, api_key)
-        if poster_url_path:
-            image_url = TMDB_IMAGE_BASE_URL.format(poster_path=poster_url_path)
-            if download_image(image_url, poster_path):
-                success_count += 1
-            else:
-                fail_count += 1
-        else:
-            logger.warning(f"No poster path found for movieId {movie_id} (tmdbId {tmdb_id})")
-            fail_count += 1
+        destination = args.output_dir / f"{movie_id}{suffix}"
+        if destination.is_file():
+            logger.info("Already present: %s", destination)
+            continue
+        try:
+            response = session.get(image_url, timeout=30)
+            response.raise_for_status()
+            if not response.headers.get("Content-Type", "").startswith("image/") or len(response.content) > 15_000_000:
+                logger.warning("Skipping movie %s: response was not a small image", movie_id)
+                continue
+            destination.write_bytes(response.content)
+            logger.info("Saved %s · %s · %s", destination, entry["artist"], license_name)
+        except requests.RequestException as exc:
+            logger.warning("Could not fetch movie %s: %s", movie_id, exc)
 
-        # Rate limiting: 0.25s between requests
-        time.sleep(0.25)
-
-    logger.info(f"Finished. Success: {success_count}, Skipped: {skip_count}, Failed: {fail_count}")
 
 if __name__ == "__main__":
     main()

@@ -117,16 +117,92 @@ The default run reads `data/ratings.csv` and `data/movies.csv`, then writes a re
 
 Monthly patterns use the timestamp when a MovieLens rating was submitted. This is not a movie release or viewing date, so it cannot establish a release-week honeymoon effect. MovieLens also does not provide review text, helpful votes, verified viewing, user trust scores, account age, IP/device data, collection membership, or demographics. The analysis therefore does not estimate those behaviors or apply the speculative trust and recency weights in the pasted Moctale brief.
 
-### Optional local poster workflow
+### Local poster artwork and visual recommendations
 
-The repository does not include one poster image per movie. If you have local poster files and rights to analyze them, place them in a folder named by MovieLens movie ID (for example, `posters/1.jpg`) and run:
+The repository does not include movie poster image files. To show artwork in the dashboard or use it for visual similarity, add poster images that you have permission to use to `licensed_posters/`, named with the MovieLens movie ID (for example, `licensed_posters/1.jpg`). Supported formats are JPG, PNG, and WebP. The app serves only images from that local folder; a TMDB ID by itself is not a poster image path.
+
+Install the optional computer-vision dependencies, then run the analysis with the same local folder:
 
 ```bash
-python moctale_analysis.py --posters posters --poster-query 1
+python -m pip install -r requirements-vision.txt
+python moctale_analysis.py --posters licensed_posters --poster-query 1
 ```
 
-This produces poster dimensions, aspect ratio, brightness, colorfulness, edge-detail indicators, review flags, and a nearest-neighbor list based on color histograms. These lightweight features are a prototype for poster quality review and visual discovery. They are not a trained ResNet/YOLO model, genre or actor recognition, NSFW/piracy detection, copyright verification, click-through prediction, or an automatic moderation decision. Those use cases need licensed image/trailer data, suitable pretrained or trained models, and human review.
+The first run downloads the pretrained TorchVision ResNet-18 weights. It extracts normalized 512-dimensional poster embeddings and caches them under `outputs/moctale/poster_visual_embeddings.npz`; run the analysis again after adding or replacing posters. It also retains the poster dimensions, color/edge indicators, and visual-neighbor CSVs. If PyTorch/TorchVision is not installed, the existing recommender continues to work without visual scores.
+
+Recommendations combine SVD collaborative predictions (50%), genre-profile similarity (30%), and poster-embedding similarity (20%). When a modality is unavailable for a candidate, the available modality weights are renormalized. The “By title” panel also uses a selected MovieLens viewer’s taste profile and the chosen title as a positive seed.
+
+The app’s voting widget stores one adjustable vote per movie and browser visitor ID in the local `instance/moctale_votes.sqlite3` database. Those votes update the displayed meter and visitor preference profile. MovieLens ratings are still the underlying dataset; anonymous browser votes are local to this app instance and do not publish or modify Moctale ratings.
+
+TMDB artwork has not been wired into this ML application. Review the image provider’s current license and API terms before using any third-party catalog images or data for model training, inference, or display. The local poster folder lets you use assets whose applicable rights permit these uses.
 
 ### Project scope compared with the Moctale brief
 
-The project now implements data-backed rating summaries, confidence-aware movie averages, user rating-style summaries, and optional local-poster color/quality features with visual-neighbor matching. Use cases such as scene recognition, cast identification, trailer tagging, manipulation detection, helpfulness prediction, and platform-specific collection comparisons remain proposed extensions because the source data does not contain the necessary inputs or labels.
+The project now implements data-backed rating summaries, confidence-aware movie averages, user rating-style summaries, local pretrained poster embeddings, a hybrid recommender, and anonymous local Moctale voting. Use cases such as scene recognition, cast identification, trailer tagging, manipulation detection, helpfulness prediction, and platform-specific collection comparisons remain proposed extensions because the source data does not contain the necessary inputs or labels.
+
+### Open-licensed posters (Wikimedia Commons)
+
+```bash
+python open_posters.py --popular 2000   # find posters via Wikidata + Commons, keep only open licenses
+python fetch_posters.py                 # download them into licensed_posters/
+python moctale_analysis.py --posters licensed_posters   # optional: rebuild poster embeddings
+```
+
+Only public-domain, CC0, CC BY and CC BY-SA images are kept. Each card shows the poster's author and license with a link to its source. Films without a freely licensed poster get a generated cover.
+
+### Offline data: MovieLens 25M and poster images
+
+```bash
+python download_data.py                          # MovieLens 25M -> data/ml-25m/ (262 MB zip, ~1.2 GB unzipped, MD5-checked)
+python download_data.py --dataset ml-32m         # or MovieLens 32M (most films, no tag genome)
+python download_data.py --posters-only --posters 1000   # lead images of the 1,000 most-rated films -> data/posters/
+python analysis.py                               # precompute everything the Analyze tab shows (~1 minute for 25M)
+python analysis.py --posters-only                # re-run just the poster analysis after more posters arrive
+```
+
+Both downloads resume if interrupted and are git-ignored. Posters come from English Wikipedia, one request at a time with backoff; most are copyrighted and used under fair use, so keep them for private analysis. With posters on disk the site serves them locally and works offline.
+
+`analysis.py` reads the ratings in chunks with compact types (~2 GB RAM for 25M) and writes `outputs/analysis/<dataset>/`:
+
+- **Overview**: rating scale and half-star adoption, activity by year, long tail (Lorenz curve, Gini), viewer activity and generosity, mean rating by release decade, ranked lists (top rated, most divisive, hidden gems…)
+- **Films**: a filterable, sortable table of every film plus a popularity-vs-rating scatter
+- **Genres**: mean rating, share of ratings, co-occurrence lift heatmap, genre share over decades
+- **Latent space**: PureSVD (randomized truncated SVD of the bias-corrected rating matrix, 48 factors), singular-value energy, a t-SNE/PCA map of 3,000 films, nearest neighbours, and how well genre vs. tag-genome similarity agrees with rating-based similarity
+- **Viewer segments**: k-means on unit viewer factor vectors, with genre lift, active years, and the films each segment rates higher / watches more than everyone else
+- **Tag genome**: browse films by any of 1,128 tags, see a film's signature tags, and compare its nearest films by genome vs. by genre
+- **Posters (computer vision)**: brightness, contrast, saturation, colourfulness, edge density, warmth, dark share, tonal entropy, k-means palettes and HSV histograms per poster; genre profiles with confidence intervals, genre palettes, decade trends, correlations with rating/popularity, a poster map, look-alike search, and a cross-validated logistic-regression experiment predicting genre from poster features
+
+### Project report and evaluation
+
+The app's **Data** tab is the ML project report: problem and data, the methods (SVD matrix factorization, user-KNN similarity metrics, genre TF-IDF cosine, the hybrid and its MMR re-rank, Bayesian ranking, poster embeddings), measured results, live model internals, what was built, and limitations.
+
+Every number in it comes from `outputs/report/metrics.json`, produced by:
+
+```bash
+python evaluate.py            # ~5 minutes: 5-fold CV, factor and k sweeps, precision/recall@10, hybrid diversity
+python evaluate.py --svdpp    # also cross-validate SVD++ (slower)
+python evaluate.py --quick    # 3 folds, 20 users; a smoke test
+```
+
+The "Inside the model" section calls three endpoints on the running app: `/api/report/explain` (one SVD prediction as μ + b_u + b_i + p_u·q_i), `/api/report/similarity` (genre cosine vs. SVD factor cosine vs. Pearson on co-ratings for two films) and `/api/report/neighbors` (nearest films by learned factors vs. by genre).
+
+### Posters, film details and reviews (no API key)
+
+`wikipedia_source.py` matches each MovieLens film to Wikidata by its IMDb ID and saves into `instance/films.sqlite3`:
+
+- **Wikidata**: English Wikipedia article, runtime, director, Rotten Tomatoes, Metacritic and IMDb scores
+- **Wikipedia**: the article's lead image (the poster), its opening paragraph, and the "Critical response" / "Reception" section, stored in the `reviews` table
+
+```bash
+python wikipedia_source.py --popular 500     # the 500 most-rated films (a few minutes)
+python wikipedia_source.py --all             # every film with an IMDb ID
+python wikipedia_source.py --movie-ids 1 318 79132
+```
+
+Films that aren't cached are looked up the first time someone opens their page. The film page also shows the free-text tags MovieLens viewers gave each film (`data/tags.csv`).
+
+Wikipedia text is CC BY-SA 4.0 and each film links to its article. Most posters on English Wikipedia are non-free images hosted there under fair use, so check that your use fits before publishing the site.
+
+### Optional: TMDB
+
+TMDB adds backdrops, taglines and user reviews. Copy `.env.example` to `.env`, set `TMDB_READ_TOKEN` (free at https://www.themoviedb.org/settings/api), then run `python tmdb.py --popular 500`. TMDB data merges into the same database and fills gaps without overwriting the Wikipedia fields. This product uses the TMDB API but is not endorsed or certified by TMDB.

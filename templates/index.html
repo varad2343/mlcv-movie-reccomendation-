@@ -3,351 +3,57 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MovieLens Recommendation System & Analytics</title>
-  <meta name="description" content="Interactive Collaborative and Content-Based Movie Recommendation Engine powered by SVD Matrix Factorization and TF-IDF Cosine Similarity on MovieLens 100k data.">
+  <meta name="theme-color" content="#121416">
+  <title>moctale — film recommendations</title>
+  <meta name="description" content="Personal film recommendations from MovieLens ratings, with posters, details and reviews from TMDB.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23121416'/%3E%3Cpath d='M7 9h18v14H7zM12 9v14M20 9v14' stroke='%23eceae6' stroke-width='1.8' fill='none' stroke-linejoin='round'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://image.tmdb.org">
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=Archivo+Narrow:wght@600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-  <!-- Background Glow Accents -->
-  <div class="glow-orb orb-1"></div>
-  <div class="glow-orb orb-2"></div>
-  <div class="glow-orb orb-3"></div>
+  <a class="skip-link" href="#view">Skip to content</a>
 
-  <!-- Header / Navigation -->
-  <header class="app-header">
-    <div class="container header-container">
-      <div class="brand">
-        <div class="brand-logo">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
-            <line x1="7" y1="2" x2="7" y2="22"></line>
-            <line x1="17" y1="2" x2="17" y2="22"></line>
-            <line x1="2" y1="12" x2="22" y2="12"></line>
-            <line x1="2" y1="7" x2="7" y2="7"></line>
-            <line x1="2" y1="17" x2="7" y2="17"></line>
-            <line x1="17" y1="17" x2="22" y2="17"></line>
-            <line x1="17" y1="7" x2="22" y2="7"></line>
-          </svg>
-        </div>
-        <div class="brand-text">
-          <span class="brand-name">MovieLens</span>
-          <span class="brand-badge">AI Recommender</span>
-        </div>
-      </div>
-
-      <nav class="nav-tabs" role="tablist">
-        <button class="nav-tab active" id="tab-btn-collaborative" data-tab="collaborative" role="tab" aria-selected="true">
-          <span class="tab-icon">👤</span>
-          <span>Collaborative (SVD)</span>
-        </button>
-        <button class="nav-tab" id="tab-btn-content" data-tab="content" role="tab" aria-selected="false">
-          <span class="tab-icon">🎯</span>
-          <span>Content-Based (Cold Start)</span>
-        </button>
-        <button class="nav-tab" id="tab-btn-toprated" data-tab="toprated" role="tab" aria-selected="false">
-          <span class="tab-icon">⭐</span>
-          <span>Top Bayesian Rated</span>
-        </button>
-        <button class="nav-tab" id="tab-btn-analytics" data-tab="analytics" role="tab" aria-selected="false">
-          <span class="tab-icon">📊</span>
-          <span>Dataset Analytics</span>
-        </button>
+  <header class="nav">
+    <div class="nav-inner">
+      <a class="wordmark" href="#/" aria-label="moctale home">moctale</a>
+      <nav class="nav-links" aria-label="Sections">
+        <a href="#/" data-route="home">For you</a>
+        <a href="#/browse" data-route="browse">Browse</a>
+        <a href="#/top" data-route="top">Top rated</a>
+        <a href="#/reviews" data-route="reviews">Reviews</a>
+        <a href="#/analyze" data-route="analyze">Analyze</a>
+        <a href="#/data" data-route="data">Report</a>
       </nav>
-
-      <div class="header-status">
-        <span class="status-indicator"></span>
-        <span class="status-text">Engine Ready</span>
+      <div class="search" role="search">
+        <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.8"/><path d="m16 16 4.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <label class="sr-only" for="search-input">Search films</label>
+        <input id="search-input" type="search" placeholder="Search 9,742 films" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="search-results" aria-autocomplete="list">
+        <div id="search-results" class="search-results" role="listbox" hidden></div>
+      </div>
+      <div class="viewer" title="Recommendations are for this MovieLens viewer (1–610)">
+        <label for="viewer-input">Viewer</label>
+        <input id="viewer-input" type="number" min="1" max="610" value="1" inputmode="numeric">
+        <button id="viewer-random" class="icon-btn" type="button" aria-label="Pick a random viewer">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
       </div>
     </div>
   </header>
 
-  <!-- Main Content Container -->
-  <main class="container app-main">
-    
-    <!-- Hero Banner with Dataset Overview -->
-    <section class="hero-section">
-      <div class="hero-content">
-        <h1 class="hero-title">MovieLens Recommendation Engine</h1>
-        <p class="hero-subtitle">
-          High-performance machine learning models utilizing <strong>SVD Matrix Factorization</strong> (Collaborative Filtering) and <strong>TF-IDF Cosine Similarity</strong> (Content-Based) on 100,000+ ratings from MovieLens.
-        </p>
-      </div>
+  <main id="view" tabindex="-1" aria-live="polite"></main>
 
-      <div class="stats-ribbon" id="stats-ribbon">
-        <div class="stat-card">
-          <span class="stat-label">Total Ratings</span>
-          <span class="stat-value" id="stat-ratings">100,836</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-label">Active Users</span>
-          <span class="stat-value" id="stat-users">610</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-label">Unique Movies</span>
-          <span class="stat-value" id="stat-movies">9,742</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-label">Global Mean Rating</span>
-          <span class="stat-value highlight" id="stat-mean">3.50 ★</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-label">Best SVD RMSE</span>
-          <span class="stat-value accent" id="stat-rmse">0.8457</span>
-        </div>
-      </div>
-    </section>
-
-    <!-- Tab 1: Collaborative Filtering (SVD) -->
-    <section id="panel-collaborative" class="tab-panel active" role="tabpanel">
-      <div class="panel-header">
-        <div>
-          <h2 class="panel-title">Collaborative Filtering: User-Personalized SVD</h2>
-          <p class="panel-desc">Predicts ratings for movies the user hasn't seen yet based on latent factor interaction across 610 users.</p>
-        </div>
-      </div>
-
-      <div class="card control-card">
-        <div class="input-row">
-          <div class="form-group flex-1">
-            <label for="user-id-input">Select User ID (1 – 610):</label>
-            <div class="input-with-action">
-              <input type="number" id="user-id-input" min="1" max="610" value="1" placeholder="Enter User ID (1-610)">
-              <button class="btn btn-secondary" id="btn-random-user" title="Pick a random user">🎲 Random User</button>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label for="user-top-n">Recommendations:</label>
-            <select id="user-top-n">
-              <option value="5" selected>Top 5</option>
-              <option value="10">Top 10</option>
-              <option value="15">Top 15</option>
-            </select>
-          </div>
-
-          <div class="form-group btn-align">
-            <button class="btn btn-primary" id="btn-fetch-user-recs">
-              <span>Generate Recommendations</span>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-            </button>
-          </div>
-        </div>
-
-        <!-- Sample user presets -->
-        <div class="sample-presets">
-          <span class="presets-label">Sample Users:</span>
-          <button class="chip" data-user-id="1">User #1 (Action/Drama)</button>
-          <button class="chip" data-user-id="42">User #42 (Classic/Comedy)</button>
-          <button class="chip" data-user-id="358">User #358 (Diverse Rater)</button>
-          <button class="chip" data-user-id="610">User #610 (Power Rater: 1,302 reviews)</button>
-        </div>
-      </div>
-
-      <!-- User Profile Header Summary -->
-      <div id="user-profile-box" class="user-profile-box hidden">
-        <div class="user-profile-header">
-          <div class="user-avatar" id="user-avatar">#1</div>
-          <div class="user-meta">
-            <h3 class="user-name" id="user-name">User Profile #1</h3>
-            <div class="user-stats-tags">
-              <span class="badge badge-info" id="user-total-ratings">232 movies rated</span>
-              <span class="badge badge-warning" id="user-avg-rating">Avg Rating: 4.37 / 5.0</span>
-            </div>
-          </div>
-        </div>
-        <div class="user-favorites-section">
-          <h4>Top Favorites Already Rated by User:</h4>
-          <div class="favorites-grid" id="user-favorites-list"></div>
-        </div>
-      </div>
-
-      <!-- Recommendation Results -->
-      <div class="results-container">
-        <div class="results-header">
-          <h3 class="results-title" id="user-results-title">Top 5 Unseen Recommendations</h3>
-          <span class="results-count" id="user-results-count">5 recommendations</span>
-        </div>
-        
-        <div id="user-recs-loading" class="loading-state hidden">
-          <div class="spinner"></div>
-          <p>Running SVD Matrix Factorization...</p>
-        </div>
-
-        <div id="user-recs-grid" class="cards-grid"></div>
-      </div>
-    </section>
-
-    <!-- Tab 2: Content-Based Filtering (Cold-Start) -->
-    <section id="panel-content" class="tab-panel" role="tabpanel">
-      <div class="panel-header">
-        <div>
-          <h2 class="panel-title">Content-Based Filtering: Cold-Start Similarity</h2>
-          <p class="panel-desc">Addresses the cold-start problem when no user history exists. Select any favorite movie to discover titles with matching genre profiles using TF-IDF and Cosine Similarity.</p>
-        </div>
-      </div>
-
-      <div class="card control-card">
-        <div class="input-row">
-          <div class="form-group flex-2 search-wrapper">
-            <label for="movie-search-input">Search Movie Title:</label>
-            <div class="search-input-container">
-              <input type="text" id="movie-search-input" value="Toy Story (1995)" placeholder="e.g. Inception, Matrix, Godfather, Pulp Fiction...">
-              <div id="search-autocomplete" class="autocomplete-dropdown hidden"></div>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label for="movie-top-n">Recommendations:</label>
-            <select id="movie-top-n">
-              <option value="5" selected>Top 5</option>
-              <option value="10">Top 10</option>
-              <option value="15">Top 15</option>
-            </select>
-          </div>
-
-          <div class="form-group btn-align">
-            <button class="btn btn-primary" id="btn-fetch-movie-recs">
-              <span>Find Similar Movies</span>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-            </button>
-          </div>
-        </div>
-
-        <div class="sample-presets">
-          <span class="presets-label">Popular Queries:</span>
-          <button class="chip movie-chip" data-title="Toy Story (1995)">Toy Story (1995)</button>
-          <button class="chip movie-chip" data-title="Inception (2010)">Inception (2010)</button>
-          <button class="chip movie-chip" data-title="Godfather, The (1972)">The Godfather (1972)</button>
-          <button class="chip movie-chip" data-title="Matrix, The (1999)">The Matrix (1999)</button>
-          <button class="chip movie-chip" data-title="Shawshank Redemption, The (1994)">Shawshank Redemption (1994)</button>
-        </div>
-      </div>
-
-      <!-- Target Movie Selected Info -->
-      <div id="target-movie-box" class="target-movie-box">
-        <div class="target-movie-badge">Anchor Movie</div>
-        <h3 id="target-movie-title" class="target-movie-title">Toy Story (1995)</h3>
-        <div id="target-movie-genres" class="genres-row"></div>
-      </div>
-
-      <!-- Recommendation Results -->
-      <div class="results-container">
-        <div class="results-header">
-          <h3 class="results-title">Content Similarity Recommendations</h3>
-          <span class="results-count" id="movie-results-count">5 recommendations</span>
-        </div>
-
-        <div id="movie-recs-loading" class="loading-state hidden">
-          <div class="spinner"></div>
-          <p>Calculating Cosine Similarity across TF-IDF genre vectors...</p>
-        </div>
-
-        <div id="movie-recs-grid" class="cards-grid"></div>
-      </div>
-    </section>
-
-    <!-- Tab 3: Top Bayesian Rated Movies -->
-    <section id="panel-toprated" class="tab-panel" role="tabpanel">
-      <div class="panel-header">
-        <div>
-          <h2 class="panel-title">Top Rated Movies: Bayesian Mean Shrinkage</h2>
-          <p class="panel-desc">Prevents single-rating titles from falsely topping the leaderboards by shrinking low-vote averages toward the dataset mean ($prior = 50$ votes).</p>
-        </div>
-      </div>
-
-      <div id="top-rated-loading" class="loading-state hidden">
-        <div class="spinner"></div>
-        <p>Loading Bayesian ranking...</p>
-      </div>
-
-      <div id="top-rated-grid" class="cards-grid"></div>
-    </section>
-
-    <!-- Tab 4: Dataset Analytics & Moctale Patterns -->
-    <section id="panel-analytics" class="tab-panel" role="tabpanel">
-      <div class="panel-header">
-        <div>
-          <h2 class="panel-title">MovieLens & Moctale Data Analytics</h2>
-          <p class="panel-desc">Visualizations and pattern distributions generated by <code>moctale_analysis.py</code>.</p>
-        </div>
-      </div>
-
-      <!-- Anomaly Alert Card -->
-      <div class="card alert-card">
-        <div class="alert-icon">⚠️</div>
-        <div class="alert-content">
-          <h4>Rating Anomaly & Outlier Detection</h4>
-          <p>The statistical audit detected <strong>7 suspicious users</strong> exhibiting high deviation and extreme polarizing ratings, <strong>68 movies</strong> with anomalous rating distributions, and <strong>217 temporal rating spikes</strong>.</p>
-        </div>
-      </div>
-
-      <!-- Charts Gallery Grid -->
-      <div class="charts-grid">
-        <div class="card chart-card">
-          <div class="chart-header">
-            <h3>Rating Distribution</h3>
-            <span class="badge badge-neutral">100,836 ratings</span>
-          </div>
-          <div class="chart-media">
-            <img src="/outputs/moctale/rating_distribution.png" alt="MovieLens rating distribution" loading="lazy">
-          </div>
-          <p class="chart-desc">Shows high clustering around 3.0, 4.0, and 5.0 stars with 4.0 being the most frequent rating (over 26%).</p>
-        </div>
-
-        <div class="card chart-card">
-          <div class="chart-header">
-            <h3>Genre Average Ratings</h3>
-            <span class="badge badge-neutral">19 Genres</span>
-          </div>
-          <div class="chart-media">
-            <img src="/outputs/moctale/genre_average_rating.png" alt="Average rating by genre" loading="lazy">
-          </div>
-          <p class="chart-desc">Film-Noir, War, and Documentary lead the highest average ratings across the collection.</p>
-        </div>
-
-        <div class="card chart-card">
-          <div class="chart-header">
-            <h3>Bayesian Shrinkage vs. Raw Mean</h3>
-            <span class="badge badge-neutral">Confidence Modeling</span>
-          </div>
-          <div class="chart-media">
-            <img src="/outputs/moctale/weighted_vs_raw_comparison.png" alt="Weighted vs raw comparison" loading="lazy">
-          </div>
-          <p class="chart-desc">Demonstrates how shrinking movie averages with small sample sizes avoids misleading perfection bias.</p>
-        </div>
-
-        <div class="card chart-card">
-          <div class="chart-header">
-            <h3>Monthly Rating Submissions</h3>
-            <span class="badge badge-neutral">1996 - 2018</span>
-          </div>
-          <div class="chart-media">
-            <img src="/outputs/moctale/monthly_average_rating.png" alt="Monthly rating patterns" loading="lazy">
-          </div>
-          <p class="chart-desc">Temporal volume across the 22-year span of user submissions in the MovieLens dataset.</p>
-        </div>
-      </div>
-    </section>
-
-  </main>
-
-  <!-- Footer -->
-  <footer class="app-footer">
-    <div class="container footer-container">
-      <div class="footer-left">
-        <p><strong>MovieLens Recommendation System</strong> &bull; Based on MovieLens Small Dataset (Harper & Konstan, 2015)</p>
-        <p class="footer-sub">Collaborative Filtering (SVD) & Content-Based Filtering (TF-IDF Cosine Similarity) &bull; Moctale Analysis</p>
-      </div>
-      <div class="footer-right">
-        <a href="https://grouplens.org/datasets/movielens/" target="_blank" rel="noopener" class="footer-link">MovieLens Data</a>
-        <a href="https://github.com/mccafj/MovieLens-Recommendation-System" target="_blank" rel="noopener" class="footer-link">Original Repo</a>
-      </div>
+  <footer class="footer">
+    <div class="footer-inner">
+      <p>Ratings and viewer tags from the <a href="https://grouplens.org/datasets/movielens/" target="_blank" rel="noopener">MovieLens Small dataset</a> (Harper &amp; Konstan, 2015). Film summaries and critical reception from <a href="https://en.wikipedia.org/" target="_blank" rel="noopener">Wikipedia</a> (<a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>); runtimes, directors and critic scores from <a href="https://www.wikidata.org/" target="_blank" rel="noopener">Wikidata</a>. Posters are shown for identification and belong to their studios.</p>
+      <p id="footer-status" class="footer-status"></p>
     </div>
   </footer>
 
+  <div id="toast-region" class="toast-region" role="status" aria-live="polite"></div>
   <script src="/static/app.js"></script>
+  <script src="/static/analyze.js"></script>
 </body>
 </html>

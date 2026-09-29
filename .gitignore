@@ -3,6 +3,15 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.pkl
+/licensed_posters/
+# Large offline downloads (download_data.py) and what's derived from them (analysis.py)
+/data/ml-25m/
+/data/ml-32m/
+/data/*.zip
+/data/*.zip.part
+/data/posters/
+/outputs/analysis/
+/outputs/moctale/poster_visual_embeddings.npz
 
 
 # C extensions

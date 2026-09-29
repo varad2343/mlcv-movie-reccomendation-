@@ -13,6 +13,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from visual_embeddings import MODEL_ID, extract_resnet18_embeddings, load_embedding_archive, poster_fingerprint
 
 
 RATING_LABELS = {
@@ -158,7 +159,13 @@ def poster_features(image_path: Path) -> dict[str, float | int]:
         }
 
 
-def analyze_posters(movies: pd.DataFrame, poster_dir: Path, output_dir: Path, query_movie_id: int | None) -> None:
+def analyze_posters(
+    movies: pd.DataFrame,
+    poster_dir: Path,
+    output_dir: Path,
+    query_movie_id: int | None,
+    embedding_batch_size: int = 24,
+) -> None:
     poster_paths = {}
     for path in poster_dir.iterdir():
         if path.is_file() and path.suffix.lower() in {".jpg", ".jpeg", ".png", ".webp"}:
@@ -221,6 +228,64 @@ def analyze_posters(movies: pd.DataFrame, poster_dir: Path, output_dir: Path, qu
         pd.DataFrame(matched).to_csv(output_dir / "visually_similar_movies.csv", index=False)
         print(f"Visual similarity results saved for movieId={query_id}.")
     print(f"Poster feature analysis covered {len(valid):,} readable poster(s).")
+
+    # The CNN uses the pooled 512-D representation from a pretrained ResNet-18.
+    # It is intentionally separate from the lightweight color/edge report above.
+    output_dir.mkdir(parents=True, exist_ok=True)
+    embedding_file = output_dir / "poster_visual_embeddings.npz"
+    poster_items = sorted(poster_paths.items())
+    fingerprint = poster_fingerprint(poster_items)
+    cached_vectors, cached_model, cached_fingerprint = load_embedding_archive(embedding_file)
+
+    if cached_fingerprint == fingerprint and cached_model == MODEL_ID and cached_vectors:
+        embedding_ids = list(cached_vectors)
+        embedding_matrix = np.vstack([cached_vectors[movie_id] for movie_id in embedding_ids])
+        print(f"Loaded cached {MODEL_ID} embeddings for {len(embedding_ids):,} poster(s).")
+        embedding_failures: list[tuple[int, str]] = []
+    else:
+        try:
+            embedding_ids, embedding_matrix, embedding_failures = extract_resnet18_embeddings(
+                poster_items, batch_size=embedding_batch_size
+            )
+        except RuntimeError as exc:
+            print(f"Deep visual embeddings skipped: {exc}")
+            return
+        if embedding_ids:
+            np.savez_compressed(
+                embedding_file,
+                movie_ids=np.asarray(embedding_ids, dtype=np.int64),
+                embeddings=embedding_matrix.astype(np.float32),
+                model_id=np.asarray(MODEL_ID),
+                fingerprint=np.asarray(fingerprint),
+            )
+
+    if embedding_failures:
+        pd.DataFrame(embedding_failures, columns=["movieId", "error"]).to_csv(
+            output_dir / "poster_embedding_errors.csv", index=False
+        )
+    if not embedding_ids:
+        print("No poster embeddings could be extracted.")
+        return
+
+    movie_index = movies.set_index("movieId")
+    query_id = query_movie_id if query_movie_id is not None else embedding_ids[0]
+    if query_id not in set(embedding_ids):
+        print(f"No deep embedding found for query movieId={query_id}; visual neighbors were skipped.")
+        return
+    query_vector = embedding_matrix[embedding_ids.index(query_id)]
+    similarities = embedding_matrix @ query_vector
+    nearest = [i for i in np.argsort(similarities)[::-1] if embedding_ids[i] != query_id][:10]
+    matched = [
+        {
+            "query_movieId": query_id,
+            "movieId": embedding_ids[i],
+            "similarity": float(similarities[i]),
+            "title": movie_index.at[embedding_ids[i], "title"] if embedding_ids[i] in movie_index.index else "Unknown",
+        }
+        for i in nearest
+    ]
+    pd.DataFrame(matched).to_csv(output_dir / "visually_similar_movies_resnet18.csv", index=False)
+    print(f"ResNet-18 visual similarity results saved for movieId={query_id}.")
 
 
 def calculate_weighted_ratings(ratings: pd.DataFrame, movies: pd.DataFrame, summary: dict[str, object], output_dir: Path) -> None:
@@ -352,9 +417,12 @@ def main() -> None:
     parser.add_argument("--prior-votes", type=int, default=50, help="Prior vote strength used to shrink movie averages")
     parser.add_argument("--posters", type=Path, help="Optional folder of local posters named <movieId>.jpg/.png/.webp")
     parser.add_argument("--poster-query", type=int, help="MovieLens movieId to use as the poster similarity query")
+    parser.add_argument("--embedding-batch-size", type=int, default=24, help="Images per ResNet-18 inference batch")
     args = parser.parse_args()
     if args.prior_votes < 0:
         parser.error("--prior-votes must be non-negative")
+    if args.embedding_batch_size < 1:
+        parser.error("--embedding-batch-size must be positive")
 
     ratings, movies = load_data(args.data_dir)
     summary = rating_summary(ratings, movies, args.prior_votes)
@@ -367,7 +435,7 @@ def main() -> None:
     print(f"Overall mean rating: {summary['global_mean']:.3f} / 5")
     print(f"Rating analysis saved to {args.output_dir}")
     if args.posters:
-        analyze_posters(movies, args.posters, args.output_dir, args.poster_query)
+        analyze_posters(movies, args.posters, args.output_dir, args.poster_query, args.embedding_batch_size)
 
 
 if __name__ == "__main__":

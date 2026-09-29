@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "movielens-app",
+      "runtimeExecutable": ".venv\\Scripts\\python.exe",
+      "runtimeArgs": ["app.py"],
+      "port": 5000,
+      "url": "http://127.0.0.1:5000"
+    }
+  ]
+}

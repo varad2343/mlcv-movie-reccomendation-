@@ -1,0 +1,235 @@
+{
+  "generated_at": "2026-09-29T07:24:47+00:00",
+  "environment": {
+    "python": "3.12.10",
+    "surprise": "1.1.5"
+  },
+  "settings": {
+    "folds": 5,
+    "seed": 24,
+    "liked_threshold": 4.0,
+    "top_n": 10,
+    "app_svd": {
+      "n_factors": 100,
+      "n_epochs": 50,
+      "lr_all": 0.01,
+      "reg_all": 0.1
+    }
+  },
+  "dataset": {
+    "ratings": 100836,
+    "users": 610,
+    "rated_movies": 9724,
+    "catalog_movies": 9742,
+    "sparsity_pct": 98.3,
+    "ratings_per_user_median": 70,
+    "ratings_per_user_min": 20,
+    "ratings_per_movie_median": 3,
+    "movies_with_one_rating_pct": 35.4,
+    "mean_rating": 3.502,
+    "liked_share_pct": 48.2,
+    "genre_terms": 24
+  },
+  "rating_prediction": [
+    {
+      "model": "Random (NormalPredictor)",
+      "family": "baseline",
+      "similarity": "\u2014",
+      "rmse": 1.4271,
+      "rmse_std": 0.0069,
+      "mae": 1.1399,
+      "fit_seconds": 0.08
+    },
+    {
+      "model": "Global + user + item bias (BaselineOnly)",
+      "family": "baseline",
+      "similarity": "\u2014",
+      "rmse": 0.8726,
+      "rmse_std": 0.0037,
+      "mae": 0.6729,
+      "fit_seconds": 0.2
+    },
+    {
+      "model": "User KNN \u00b7 cosine",
+      "family": "neighbourhood",
+      "similarity": "cosine",
+      "rmse": 0.9729,
+      "rmse_std": 0.0035,
+      "mae": 0.7492,
+      "fit_seconds": 0.32
+    },
+    {
+      "model": "User KNN \u00b7 mean squared difference",
+      "family": "neighbourhood",
+      "similarity": "msd",
+      "rmse": 0.9473,
+      "rmse_std": 0.0038,
+      "mae": 0.7259,
+      "fit_seconds": 0.16
+    },
+    {
+      "model": "User KNN \u00b7 Pearson",
+      "family": "neighbourhood",
+      "similarity": "pearson",
+      "rmse": 0.9725,
+      "rmse_std": 0.0025,
+      "mae": 0.7509,
+      "fit_seconds": 0.45
+    },
+    {
+      "model": "User KNN with means \u00b7 Pearson-baseline",
+      "family": "neighbourhood",
+      "similarity": "pearson_baseline",
+      "rmse": 0.8959,
+      "rmse_std": 0.0064,
+      "mae": 0.6799,
+      "fit_seconds": 0.52
+    },
+    {
+      "model": "NMF (non-negative MF)",
+      "family": "matrix factorization",
+      "similarity": "\u2014",
+      "rmse": 0.9238,
+      "rmse_std": 0.0042,
+      "mae": 0.7074,
+      "fit_seconds": 1.98
+    },
+    {
+      "model": "SVD \u00b7 library defaults",
+      "family": "matrix factorization",
+      "similarity": "\u2014",
+      "rmse": 0.8733,
+      "rmse_std": 0.0046,
+      "mae": 0.6708,
+      "fit_seconds": 0.8
+    },
+    {
+      "model": "SVD \u00b7 tuned (used in the app)",
+      "family": "matrix factorization",
+      "similarity": "\u2014",
+      "rmse": 0.8501,
+      "rmse_std": 0.0042,
+      "mae": 0.6514,
+      "fit_seconds": 2.01
+    },
+    {
+      "model": "SVD++ (implicit feedback)",
+      "family": "matrix factorization",
+      "similarity": "\u2014",
+      "rmse": 0.8619,
+      "rmse_std": 0.0053,
+      "mae": 0.6609,
+      "fit_seconds": 47.1
+    }
+  ],
+  "factor_sweep": [
+    {
+      "factors": 2,
+      "test_rmse": 0.8627,
+      "train_rmse": 0.7506,
+      "fit_seconds": 1.57
+    },
+    {
+      "factors": 5,
+      "test_rmse": 0.8647,
+      "train_rmse": 0.7205,
+      "fit_seconds": 1.87
+    },
+    {
+      "factors": 10,
+      "test_rmse": 0.8607,
+      "train_rmse": 0.6843,
+      "fit_seconds": 1.68
+    },
+    {
+      "factors": 25,
+      "test_rmse": 0.8558,
+      "train_rmse": 0.6309,
+      "fit_seconds": 1.82
+    },
+    {
+      "factors": 50,
+      "test_rmse": 0.8545,
+      "train_rmse": 0.5912,
+      "fit_seconds": 2.25
+    },
+    {
+      "factors": 100,
+      "test_rmse": 0.8534,
+      "train_rmse": 0.5579,
+      "fit_seconds": 2.84
+    },
+    {
+      "factors": 200,
+      "test_rmse": 0.8516,
+      "train_rmse": 0.5296,
+      "fit_seconds": 4.04
+    }
+  ],
+  "k_sweep": [
+    {
+      "k": 5,
+      "test_rmse": 0.9251
+    },
+    {
+      "k": 10,
+      "test_rmse": 0.908
+    },
+    {
+      "k": 20,
+      "test_rmse": 0.9031
+    },
+    {
+      "k": 40,
+      "test_rmse": 0.9029
+    },
+    {
+      "k": 80,
+      "test_rmse": 0.9031
+    }
+  ],
+  "ranking": [
+    {
+      "model": "Random (NormalPredictor)",
+      "precision_at_10": 0.5391,
+      "recall_at_10": 0.2788
+    },
+    {
+      "model": "BaselineOnly",
+      "precision_at_10": 0.5425,
+      "recall_at_10": 0.2584
+    },
+    {
+      "model": "User KNN with means \u00b7 Pearson-baseline",
+      "precision_at_10": 0.6145,
+      "recall_at_10": 0.375
+    },
+    {
+      "model": "SVD \u00b7 tuned (used in the app)",
+      "precision_at_10": 0.5913,
+      "recall_at_10": 0.3061
+    }
+  ],
+  "hybrid_vs_svd": {
+    "users": 100,
+    "svd": {
+      "coverage_pct": 1.51,
+      "unique_titles": 147,
+      "genre_diversity": 0.715,
+      "median_ratings_per_title": 5.0
+    },
+    "hybrid": {
+      "coverage_pct": 3.76,
+      "unique_titles": 366,
+      "genre_diversity": 0.275,
+      "median_ratings_per_title": 6.5
+    },
+    "hybrid_mmr": {
+      "coverage_pct": 3.56,
+      "unique_titles": 347,
+      "genre_diversity": 0.349,
+      "median_ratings_per_title": 6.2
+    }
+  },
+  "runtime_seconds": 475.2
+}
